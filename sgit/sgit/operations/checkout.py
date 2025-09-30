@@ -1,7 +1,19 @@
 import os
+from typing import Any
 
 
-def tree_checkout(repo, tree, path):
+def tree_checkout(repo: "GitRepository", tree: Any, path: str) -> None:
+    """
+    Recursively checkout a Git tree object into a specified directory.
+
+    Args:
+        repo: The Git repository object.
+        tree: A GitTree object to checkout.
+        path: Destination path to checkout files.
+
+    Raises:
+        Exception: If an object type is unknown.
+    """
     from ..utils.hashing import object_read, object_find
 
     for item in tree.items:
@@ -19,7 +31,16 @@ def tree_checkout(repo, tree, path):
             raise Exception(f"Unknown type {obj.fmt} for object {item.sha}")
 
 
-def cmd_checkout(args):
+def cmd_checkout(args: Any) -> None:
+    """
+    Command handler to checkout a commit into a directory.
+
+    Args:
+        args: Command-line arguments with 'commit' and 'path'.
+
+    Raises:
+        Exception: If target path is not a directory or not empty.
+    """
     from ..utils.file_io import repo_find
     from ..utils.hashing import object_read, object_find
 

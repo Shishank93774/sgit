@@ -1,13 +1,31 @@
+"""Git index (staging area) implementation and related commands."""
+
 import os
 from datetime import datetime
 import pwd
 import grp
+from typing import List, Optional, Tuple
 
 
 class GitIndexEntry:
-    def __init__(self, ctime=None, mtime=None, dev=None, ino=None, mode_type=None,
-                 mode_perms=None, uid=None, gid=None, fsize=None, sha=None,
-                 flag_assume_valid=None, flag_stage=None, name=None):
+    """Represents a single entry in the Git index."""
+
+    def __init__(
+        self,
+        ctime: Optional[Tuple[int, int]] = None,
+        mtime: Optional[Tuple[int, int]] = None,
+        dev: Optional[int] = None,
+        ino: Optional[int] = None,
+        mode_type: Optional[int] = None,
+        mode_perms: Optional[int] = None,
+        uid: Optional[int] = None,
+        gid: Optional[int] = None,
+        fsize: Optional[int] = None,
+        sha: Optional[str] = None,
+        flag_assume_valid: Optional[bool] = None,
+        flag_stage: Optional[int] = None,
+        name: Optional[str] = None,
+    ) -> None:
         self.ctime = ctime
         self.mtime = mtime
         self.dev = dev
@@ -24,23 +42,31 @@ class GitIndexEntry:
 
 
 class GitIndex:
-    def __init__(self, version=2, entries=None):
+    """Represents the Git index file, containing multiple entries."""
+
+    def __init__(self, version: int = 2, entries: Optional[List[GitIndexEntry]] = None) -> None:
         self.version = version
-        self.entries = entries if entries is not None else []
+        self.entries: List[GitIndexEntry] = entries if entries is not None else []
 
 
-def index_read(repo):
+def index_read(repo) -> GitIndex:
+    """
+    Read and parse the index file of the given repository.
+
+    Args:
+        repo: Repository object providing file access.
+
+    Returns:
+        GitIndex: Parsed index object.
+    """
     from ..utils.file_io import repo_file
     index_file = repo_file(repo, "index")
 
     if not os.path.exists(index_file):
         return GitIndex()
 
-    with open(index_file, 'rb') as f:
+    with open(index_file, "rb") as f:
         raw = f.read()
-
-    if len(raw) == 0:
-        return GitIndex()
 
     if len(raw) < 12:
         return GitIndex()
@@ -58,11 +84,11 @@ def index_read(repo):
     if count == 0:
         return GitIndex(version=version, entries=[])
 
-    entries = []
+    entries: List[GitIndexEntry] = []
     content = raw[12:]
     idx = 0
 
-    for i in range(count):
+    for _ in range(count):
         if idx + 62 > len(content):
             return GitIndex()
 
@@ -97,7 +123,7 @@ def index_read(repo):
             name_bytes = content[idx:idx + name_length]
             idx += name_length
         else:
-            null_idx = content.find(b'\x00', idx)
+            null_idx = content.find(b"\x00", idx)
             if null_idx == -1:
                 return GitIndex()
             name_bytes = content[idx:null_idx]
@@ -112,17 +138,35 @@ def index_read(repo):
                 return GitIndex()
             idx += pad
 
-        entries.append(GitIndexEntry(
-            ctime=(ctime_s, ctime_ns), mtime=(mtime_s, mtime_ns),
-            dev=dev, ino=ino, mode_type=mode_type, mode_perms=mode_perms,
-            uid=uid, gid=gid, fsize=fsize, sha=sha,
-            flag_assume_valid=flag_assume_valid, flag_stage=flag_stage, name=name
-        ))
+        entries.append(
+            GitIndexEntry(
+                ctime=(ctime_s, ctime_ns),
+                mtime=(mtime_s, mtime_ns),
+                dev=dev,
+                ino=ino,
+                mode_type=mode_type,
+                mode_perms=mode_perms,
+                uid=uid,
+                gid=gid,
+                fsize=fsize,
+                sha=sha,
+                flag_assume_valid=flag_assume_valid,
+                flag_stage=flag_stage,
+                name=name,
+            )
+        )
 
     return GitIndex(version=version, entries=entries)
 
 
-def index_write(repo, index):
+def index_write(repo, index: GitIndex) -> None:
+    """
+    Write the given Git index to disk.
+
+    Args:
+        repo: Repository object providing file access.
+        index: GitIndex instance to serialize.
+    """
     from ..utils.file_io import repo_file
 
     with open(repo_file(repo, "index"), "wb") as f:
@@ -163,8 +207,15 @@ def index_write(repo, index):
                 idx += pad
 
 
-def cmd_ls_files(args):
+def cmd_ls_files(args) -> None:
+    """
+    List files currently staged in the index.
+
+    Args:
+        args: Parsed CLI arguments (expects 'verbose' flag).
+    """
     from ..utils.file_io import repo_find
+
     repo = repo_find()
     index = index_read(repo)
 
@@ -178,46 +229,51 @@ def cmd_ls_files(args):
             print(f"  {entry_type} with perms: {e.mode_perms:o}")
             print(f"  on blob: {e.sha}")
             print(
-                f"  created: {datetime.fromtimestamp(e.ctime[0])}.{e.ctime[1]}, modified: {datetime.fromtimestamp(e.mtime[0])}.{e.mtime[1]}")
+                f"  created: {datetime.fromtimestamp(e.ctime[0])}.{e.ctime[1]}, "
+                f"modified: {datetime.fromtimestamp(e.mtime[0])}.{e.mtime[1]}"
+            )
             print(f"  device: {e.dev}, inode: {e.ino}")
-            print(f"  user: {pwd.getpwuid(e.uid).pw_name} ({e.uid})  group: {grp.getgrgid(e.gid).gr_name} ({e.gid})")
+            print(f"  user: {pwd.getpwuid(e.uid).pw_name} ({e.uid})  "
+                  f"group: {grp.getgrgid(e.gid).gr_name} ({e.gid})")
             print(f"  flags: stage={e.flag_stage} assume_valid={e.flag_assume_valid}")
 
 
-def cmd_ls_tree(args):
+def cmd_ls_tree(args) -> None:
+    """
+    Pretty-print the contents of a tree object.
+
+    Args:
+        args: Parsed CLI arguments (expects 'tree' and optional 'recursive').
+    """
     from ..utils.file_io import repo_find
     from ..utils.hashing import object_find, object_read
 
     repo = repo_find()
 
-    def ls_tree(repo, ref, recursive=None, prefix=""):
-        sha = object_find(repo, ref, fmt=b'tree')
+    def ls_tree(repo, ref: str, recursive: Optional[bool] = None, prefix: str = "") -> None:
+        sha = object_find(repo, ref, fmt=b"tree")
         obj = object_read(repo, sha)
 
         for item in obj.items:
-            if len(item.mode) == 5:
-                typ = item.mode[0:1]
-            else:
-                typ = item.mode[0:2]
+            typ = item.mode[0:1] if len(item.mode) == 5 else item.mode[0:2]
 
             match typ:
-                case b'04':
-                    typ = "tree"
-                case b'10':
-                    typ = "blob"
-                case b'12':
-                    typ = "blob"
-                case b'16':
-                    typ = "commit"
+                case b"04":
+                    typ_str = "tree"
+                case b"10":
+                    typ_str = "blob"
+                case b"12":
+                    typ_str = "blob"
+                case b"16":
+                    typ_str = "commit"
                 case _:
                     raise Exception(f"Unknown type {typ}")
 
-            if not (recursive and typ == "tree"):
-                path_str = item.path.decode('utf-8') if isinstance(item.path, bytes) else item.path
-                print(
-                    f"{'0' * (6 - len(item.mode)) + item.mode.decode('ascii')} {typ} {item.sha}\t{os.path.join(prefix, path_str)}")
+            path_str = item.path.decode("utf-8") if isinstance(item.path, bytes) else item.path
+            if not (recursive and typ_str == "tree"):
+                print(f"{'0' * (6 - len(item.mode)) + item.mode.decode('ascii')} "
+                      f"{typ_str} {item.sha}\t{os.path.join(prefix, path_str)}")
             else:
-                path_str = item.path.decode('utf-8') if isinstance(item.path, bytes) else item.path
                 ls_tree(repo, item.sha, recursive, os.path.join(prefix, path_str))
 
     ls_tree(repo, args.tree, args.recursive)

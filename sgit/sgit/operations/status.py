@@ -1,7 +1,18 @@
 import os
+from typing import Dict
 
 
-def cmd_status(args):
+def cmd_status(args) -> None:
+    """
+    Display the status of the repository, including:
+    - Current branch
+    - Changes staged for commit
+    - Changes not staged for commit
+    - Untracked files
+
+    Args:
+        args: Command-line arguments (not used directly here).
+    """
     from ..utils.file_io import repo_find
     from ..core.index import index_read
     from ..core.refs import branch_get_active, ref_resolve
@@ -10,7 +21,7 @@ def cmd_status(args):
 
     repo = repo_find()
 
-    # Branch information
+    # Branch info
     branch = branch_get_active(repo)
     if branch:
         print(f"On branch {branch}")
@@ -25,10 +36,20 @@ def cmd_status(args):
     if index is None:
         index = type("EmptyIndex", (), {"entries": []})()
 
-    # Changes to be committed
     print("\nChanges to be committed:")
 
-    def tree_to_dict(repo, ref, prefix=""):
+    def tree_to_dict(repo, ref: str, prefix: str = "") -> Dict[str, str]:
+        """
+        Convert a tree object to a dict mapping file paths to SHA-1 hashes.
+
+        Args:
+            repo: Repository object.
+            ref: Tree or commit reference.
+            prefix: Path prefix for recursion.
+
+        Returns:
+            Dictionary of file paths -> SHA.
+        """
         res = {}
         tree_sha = object_find(repo, ref, fmt=b'tree')
         if tree_sha is None:
@@ -39,7 +60,7 @@ def cmd_status(args):
             leaf_path = leaf.path.decode("utf-8") if isinstance(leaf.path, bytes) else leaf.path
             full_path = os.path.join(prefix, leaf_path)
 
-            if leaf.mode.startswith(b'04'):
+            if leaf.mode.startswith(b'04'):  # Directory
                 res.update(tree_to_dict(repo, leaf.sha, full_path))
             else:
                 res[full_path] = leaf.sha
@@ -47,6 +68,7 @@ def cmd_status(args):
 
     head_tree = tree_to_dict(repo, "HEAD")
 
+    # Compare index vs HEAD
     if not head_tree:
         for entry in index.entries:
             print(f"  new file: {entry.name}")
@@ -72,8 +94,7 @@ def cmd_status(args):
         if root == repo.gitdir or root.startswith(gitdir_prefix):
             continue
         for f in files:
-            full_path = os.path.join(root, f)
-            rel_path = os.path.relpath(full_path, repo.worktree)
+            rel_path = os.path.relpath(os.path.join(root, f), repo.worktree)
             all_files.append(rel_path)
 
     for entry in index.entries:
@@ -82,11 +103,11 @@ def cmd_status(args):
             print(f"  deleted:  {entry.name}")
         else:
             stat = os.stat(full_path)
-            ctime_ns = entry.ctime[0] * 10 ** 9 + entry.ctime[1]
-            mtime_ns = entry.mtime[0] * 10 ** 9 + entry.mtime[1]
+            ctime_ns = entry.ctime[0] * 10**9 + entry.ctime[1]
+            mtime_ns = entry.mtime[0] * 10**9 + entry.mtime[1]
 
-            stat_ctime_ns = getattr(stat, 'st_ctime_ns', stat.st_ctime * 10 ** 9)
-            stat_mtime_ns = getattr(stat, 'st_mtime_ns', stat.st_mtime * 10 ** 9)
+            stat_ctime_ns = getattr(stat, 'st_ctime_ns', stat.st_ctime * 10**9)
+            stat_mtime_ns = getattr(stat, 'st_mtime_ns', stat.st_mtime * 10**9)
 
             if stat_ctime_ns != ctime_ns or stat_mtime_ns != mtime_ns:
                 with open(full_path, "rb") as f:

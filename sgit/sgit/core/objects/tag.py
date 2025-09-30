@@ -1,4 +1,6 @@
 from .commit import GitCommit
 
 class GitTag(GitCommit):
-    fmt = b'tag'
+    """Git object representing an annotated tag."""
+
+    fmt: bytes = b'tag'

@@ -1,8 +1,19 @@
 import os
 import re
+from typing import Any, Dict, Optional, Union
 
 
-def ref_resolve(repo, ref):
+def ref_resolve(repo: Any, ref: str) -> Optional[str]:
+    """
+    Resolve a Git reference to its final SHA-1 commit hash.
+
+    Args:
+        repo: The repository object.
+        ref: The reference path (e.g., "HEAD", "refs/heads/master").
+
+    Returns:
+        The resolved SHA-1 hash as a string if found, otherwise None.
+    """
     from ..utils.file_io import repo_file
     path = repo_file(repo, ref)
     if not path or not os.path.isfile(path):
@@ -11,15 +22,25 @@ def ref_resolve(repo, ref):
         data = f.read().strip()
     if data.startswith("ref: "):
         return ref_resolve(repo, data[5:])
-    else:
-        return data
+    return data
 
 
-def ref_list(repo, path=None):
+def ref_list(repo: Any, path: Optional[str] = None) -> Dict[str, Union[str, dict]]:
+    """
+    Recursively list all references under the refs directory.
+
+    Args:
+        repo: The repository object.
+        path: Optional starting path for refs. Defaults to repo/refs.
+
+    Returns:
+        A nested dictionary mapping reference names to their SHA-1 hashes
+        or further dictionaries if subdirectories are present.
+    """
     from ..utils.file_io import repo_dir
     if not path:
         path = repo_dir(repo, "refs")
-    res = {}
+    res: Dict[str, Union[str, dict]] = {}
     if not path or not os.path.isdir(path):
         return res
     for f in sorted(os.listdir(path)):
@@ -31,13 +52,30 @@ def ref_list(repo, path=None):
     return res
 
 
-def ref_create(repo, ref_name, sha):
+def ref_create(repo: Any, ref_name: str, sha: str) -> None:
+    """
+    Create or update a reference to point to a given SHA-1 hash.
+
+    Args:
+        repo: The repository object.
+        ref_name: The reference name (e.g., "heads/main").
+        sha: The commit SHA-1 hash to associate with the ref.
+    """
     from ..utils.file_io import repo_file
     with open(repo_file(repo, "refs/" + ref_name), "w") as fp:
         fp.write(sha + "\n")
 
 
-def show_ref(repo, refs, with_hash=True, prefix=""):
+def show_ref(repo: Any, refs: Dict[str, Union[str, dict]], with_hash: bool = True, prefix: str = "") -> None:
+    """
+    Print repository references in a tree-like format.
+
+    Args:
+        repo: The repository object.
+        refs: A dictionary of references.
+        with_hash: Whether to include SHA-1 hashes in the output.
+        prefix: Optional prefix to prepend to reference names.
+    """
     if prefix:
         prefix = prefix + "/"
     for k, v in refs.items():
@@ -49,7 +87,17 @@ def show_ref(repo, refs, with_hash=True, prefix=""):
             show_ref(repo, v, with_hash, f"{prefix}{k}")
 
 
-def tag_create(repo, name, ref, create_tag_object=False):
+def tag_create(repo: Any, name: str, ref: str, create_tag_object: bool = False) -> None:
+    """
+    Create a lightweight or annotated tag.
+
+    Args:
+        repo: The repository object.
+        name: The name of the tag.
+        ref: The reference (commit or object) to tag.
+        create_tag_object: If True, creates an annotated tag object;
+                           otherwise creates a lightweight tag.
+    """
     from ..utils.hashing import object_find, object_write
     from ..core.objects.tag import GitTag
 
@@ -70,7 +118,16 @@ def tag_create(repo, name, ref, create_tag_object=False):
         ref_create(repo, "tags/" + name, sha)
 
 
-def branch_get_active(repo):
+def branch_get_active(repo: Any) -> Union[str, bool]:
+    """
+    Get the currently active branch name.
+
+    Args:
+        repo: The repository object.
+
+    Returns:
+        The branch name as a string if on a branch, otherwise False.
+    """
     from ..utils.file_io import repo_file
     head_path = repo_file(repo, "HEAD")
     if not os.path.exists(head_path):
@@ -82,7 +139,13 @@ def branch_get_active(repo):
     return False
 
 
-def cmd_tag(args):
+def cmd_tag(args: Any) -> None:
+    """
+    CLI command for handling Git tags.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     from ..utils.file_io import repo_find
     repo = repo_find()
 
@@ -93,7 +156,13 @@ def cmd_tag(args):
         show_ref(repo, refs.get("tags", {}), with_hash=False)
 
 
-def cmd_rev_parse(args):
+def cmd_rev_parse(args: Any) -> None:
+    """
+    CLI command to resolve a name to its SHA-1 object ID.
+
+    Args:
+        args: Parsed CLI arguments.
+    """
     from ..utils.file_io import repo_find
     from ..utils.hashing import object_find
 

@@ -1,4 +1,15 @@
-def log_graphviz(repo, sha, seen):
+from typing import Set, Union
+
+
+def log_graphviz(repo: "GitRepository", sha: str, seen: Set[str]) -> None:
+    """
+    Recursively print commit history in Graphviz DOT format.
+
+    Args:
+        repo: The repository object.
+        sha: SHA-1 of the commit to log.
+        seen: Set of already processed commit SHAs to avoid cycles.
+    """
     if sha is None or sha in seen:
         return
     seen.add(sha)
@@ -33,16 +44,18 @@ def log_graphviz(repo, sha, seen):
         parents = [parents]
 
     for p in parents:
-        if isinstance(p, bytes):
-            p_str = p.decode("ascii")
-        else:
-            p_str = str(p)
-
+        p_str: str = p.decode("ascii") if isinstance(p, bytes) else str(p)
         print(f'  "c_{sha}" -> "c_{p_str}"')
         log_graphviz(repo, p_str, seen)
 
 
-def cmd_log(args):
+def cmd_log(args: "Namespace") -> None:
+    """
+    Display the commit history of the repository in Graphviz DOT format.
+
+    Args:
+        args: Command-line arguments containing the 'commit' attribute.
+    """
     from ..utils.file_io import repo_find
     from ..utils.hashing import object_find
 

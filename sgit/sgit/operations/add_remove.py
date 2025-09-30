@@ -1,15 +1,24 @@
 import os
+from typing import List, Set, Tuple
 
+def rm(repo: "GitRepository", paths: List[str], delete: bool = True, skip_missing: bool = False) -> None:
+    """
+    Remove files from the Git index and optionally from the working tree.
 
-def rm(repo, paths, delete=True, skip_missing=False):
+    Args:
+        repo: The Git repository object.
+        paths: List of file paths to remove.
+        delete: If True, delete the files from the working directory as well.
+        skip_missing: If True, skip files not present in the index.
+
+    Raises:
+        Exception: If paths are outside the worktree or not in the index.
+    """
     from ..core.index import index_read, index_write, GitIndex
 
-    index = index_read(repo)
-    if index is None:
-        index = GitIndex()
-
+    index = index_read(repo) or GitIndex()
     worktree = repo.worktree + os.sep
-    abspaths = set()
+    abspaths: Set[str] = set()
 
     for path in paths:
         abspath = os.path.abspath(path)
@@ -29,7 +38,7 @@ def rm(repo, paths, delete=True, skip_missing=False):
         else:
             kept_entries.append(e)
 
-    if len(abspaths) > 0 and not skip_missing:
+    if abspaths and not skip_missing:
         raise Exception(f"Cannot remove paths not in the index: {abspaths}")
 
     if delete:
@@ -41,11 +50,20 @@ def rm(repo, paths, delete=True, skip_missing=False):
     index_write(repo, index)
 
 
-def add(repo, paths):
-    rm(repo, paths, delete=False, skip_missing=True)
+def add(repo: "GitRepository", paths: List[str]) -> None:
+    """
+    Add files to the Git index without modifying the working tree.
 
+    Args:
+        repo: The Git repository object.
+        paths: List of file paths to add.
+
+    Raises:
+        Exception: If a path is not a file or is outside the repository.
+    """
+    rm(repo, paths, delete=False, skip_missing=True)
     worktree = repo.worktree + os.path.sep
-    clean_paths = set()
+    clean_paths: Set[Tuple[str, str]] = set()
 
     for path in paths:
         abspath = os.path.abspath(path)
@@ -54,14 +72,12 @@ def add(repo, paths):
         relpath = os.path.relpath(abspath, repo.worktree)
         clean_paths.add((abspath, relpath))
 
-    from ..core.index import index_read, index_write, GitIndexEntry
+    from ..core.index import index_read, index_write, GitIndex, GitIndexEntry
     from ..utils.hashing import object_hash
 
-    index = index_read(repo)
-    if index is None:
-        index = GitIndex()
+    index = index_read(repo) or GitIndex()
 
-    for (abspath, relpath) in clean_paths:
+    for abspath, relpath in clean_paths:
         with open(abspath, "rb") as fd:
             sha = object_hash(fd, b"blob", repo)
             stat = os.stat(abspath)
@@ -91,13 +107,25 @@ def add(repo, paths):
     index_write(repo, index)
 
 
-def cmd_add(args):
+def cmd_add(args) -> None:
+    """
+    Command handler to add files to the index.
+
+    Args:
+        args: Command-line arguments containing 'path'.
+    """
     from ..utils.file_io import repo_find
     repo = repo_find()
     add(repo, args.path)
 
 
-def cmd_rm(args):
+def cmd_rm(args) -> None:
+    """
+    Command handler to remove files from the index.
+
+    Args:
+        args: Command-line arguments containing 'path'.
+    """
     from ..utils.file_io import repo_find
     repo = repo_find()
     rm(repo, args.path)

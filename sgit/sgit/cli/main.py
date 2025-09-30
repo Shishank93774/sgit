@@ -1,14 +1,31 @@
+"""Main entry point for the sgit command-line interface."""
+
 import sys
+from argparse import Namespace
+from typing import List
 from .arg_parsers import build_arg_parser
 from . import commands
 
 
-def main(argv=None):
+def main(argv: List[str] | None = None) -> None:
+    """
+    Parse CLI arguments and dispatch to the appropriate command handler.
+
+    Args:
+        argv: Optional list of command-line arguments.
+              If None, defaults to sys.argv[1:].
+
+    Behavior:
+        - Builds the argument parser with all supported commands.
+        - Parses the provided arguments.
+        - Looks up the corresponding command handler in the dispatch table.
+        - Executes the handler or prints an error if the command is unknown.
+    """
     if argv is None:
         argv = sys.argv[1:]
 
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args: Namespace = parser.parse_args(argv)
 
     if not args.command:
         parser.print_help()

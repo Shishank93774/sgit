@@ -45,7 +45,7 @@ sgit/
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/Shishank93774/sgit
+git clone https://github.com/Shishank93774/sgit .
 cd sgit
 bash install.sh
 ```

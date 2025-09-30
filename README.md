@@ -60,7 +60,7 @@ bash install.sh
 * **Commit**: Stores snapshot of repository at a point in time.
 * **Tag**: Named references to commits.
 
-All objects are stored in `.sgit/objects` using SHA-1 hash as the identifier and compressed with zlib.
+All objects are stored in `.git/objects` using SHA-1 hash as the identifier and compressed with zlib.
 
 ---
 
